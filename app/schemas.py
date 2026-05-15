@@ -18,15 +18,12 @@ class TrainRequest(BaseModel):
         if not self.features:
             raise InvalidDatasetError("features must not be empty.")
         if len(self.features) != len(self.targets):
-            raise InvalidDatasetError(
-                f"features and targets length mismatch: {len(self.features)} vs {len(self.targets)}."
-            )
+            n, m = len(self.features), len(self.targets)
+            raise InvalidDatasetError(f"features/targets length mismatch: {n} vs {m}.")
         row_len = len(self.features[0])
         for i, row in enumerate(self.features):
             if len(row) != row_len:
-                raise InvalidDatasetError(
-                    f"Row {i} has {len(row)} features, expected {row_len}."
-                )
+                raise InvalidDatasetError(f"Row {i} has {len(row)} features, expected {row_len}.")
         return self
 
 
@@ -42,7 +39,9 @@ class JobStatusResponse(BaseModel):
     error: str | None = Field(None, json_schema_extra={"example": None})
     created_at: datetime = Field(..., json_schema_extra={"example": "2024-01-01T00:00:00Z"})
     started_at: datetime | None = Field(None, json_schema_extra={"example": "2024-01-01T00:00:01Z"})
-    completed_at: datetime | None = Field(None, json_schema_extra={"example": "2024-01-01T00:00:05Z"})
+    completed_at: datetime | None = Field(
+        None, json_schema_extra={"example": "2024-01-01T00:00:05Z"}
+    )
 
 
 class PredictRequest(BaseModel):
@@ -58,9 +57,7 @@ class PredictRequest(BaseModel):
         row_len = len(self.features[0])
         for i, row in enumerate(self.features):
             if len(row) != row_len:
-                raise InvalidDatasetError(
-                    f"Row {i} has {len(row)} features, expected {row_len}."
-                )
+                raise InvalidDatasetError(f"Row {i} has {len(row)} features, expected {row_len}.")
         return self
 
 
@@ -83,21 +80,20 @@ class EvaluateRequest(BaseModel):
         if not self.features:
             raise InvalidDatasetError("features must not be empty.")
         if len(self.features) != len(self.targets):
-            raise InvalidDatasetError(
-                f"features and targets length mismatch: {len(self.features)} vs {len(self.targets)}."
-            )
+            n, m = len(self.features), len(self.targets)
+            raise InvalidDatasetError(f"features/targets length mismatch: {n} vs {m}.")
         row_len = len(self.features[0])
         for i, row in enumerate(self.features):
             if len(row) != row_len:
-                raise InvalidDatasetError(
-                    f"Row {i} has {len(row)} features, expected {row_len}."
-                )
+                raise InvalidDatasetError(f"Row {i} has {len(row)} features, expected {row_len}.")
         return self
 
 
 class EvaluateResponse(BaseModel):
     model_id: str = Field(..., json_schema_extra={"example": "e5f6g7h8-..."})
-    metrics: dict[str, float] = Field(..., json_schema_extra={"example": {"r2": 0.99, "rmse": 0.01}})
+    metrics: dict[str, float] = Field(
+        ..., json_schema_extra={"example": {"r2": 0.99, "rmse": 0.01}}
+    )
     evaluated_at: datetime = Field(..., json_schema_extra={"example": "2024-01-01T00:00:00Z"})
 
 

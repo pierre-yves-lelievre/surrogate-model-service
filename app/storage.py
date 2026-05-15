@@ -1,7 +1,6 @@
 import json
 import platform
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
@@ -62,7 +61,7 @@ class ModelStore:
     def save_evaluation(self, model_id: str, metrics: dict) -> None:
         manifest = self.load_manifest(model_id)
         manifest.setdefault("evaluations", []).append(
-            {"metrics": metrics, "evaluated_at": datetime.now(timezone.utc).isoformat()}
+            {"metrics": metrics, "evaluated_at": datetime.now(UTC).isoformat()}
         )
         with self._manifest_path(model_id).open("w") as f:
             json.dump(manifest, f, indent=2)
@@ -78,7 +77,7 @@ def build_manifest(
     model_type: str = "RandomForestRegressor",
 ) -> dict:
     return {
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "sklearn_version": sklearn.__version__,
         "python_version": platform.python_version(),
         "random_state": random_state,
