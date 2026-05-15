@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    env_file:
+      - .env.example
+    environment:
+      - MODELS_DIR=/app/models
