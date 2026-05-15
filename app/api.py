@@ -5,11 +5,14 @@ from functools import lru_cache
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.config import settings
-from app.errors import JobNotFoundError
+from app.errors import JobNotFoundError, ModelNotFoundError
+from app.evaluation import compute_metrics
 from app.inference import predict
 from app.jobs import Job, JobStore
 from app.logging_setup import get_logger
 from app.schemas import (
+    EvaluateRequest,
+    EvaluateResponse,
     JobStatusResponse,
     PredictRequest,
     PredictResponse,
@@ -205,3 +208,80 @@ async def run_predict(
         predictions=predictions,
         timestamp=timestamp,
     )
+
+
+@router.post(
+    "/evaluate",
+    response_model=EvaluateResponse,
+    summary="Evaluate a trained model",
+    description=(
+        "Runs inference on the supplied features, computes regression metrics "
+        "(MSE, RMSE, MAE, R²) against the provided targets, and persists the "
+        "result to the model's manifest sidecar. Raises 404 if the model is not found."
+    ),
+    responses={
+        404: {
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Model not found.", "code": "model_not_found"}
+                }
+            }
+        }
+    },
+)
+async def evaluate(
+    request: EvaluateRequest,
+    store: ModelStore = Depends(get_store),
+) -> EvaluateResponse:
+    model = store.load(request.model_id)
+    predictions = predict(model, request.features)
+    metrics = compute_metrics(request.targets, predictions)
+    store.save_evaluation(request.model_id, metrics)
+    evaluated_at = datetime.now(UTC)
+    log.info("evaluation_completed", model_id=request.model_id, metrics=metrics)
+    return EvaluateResponse(
+        model_id=request.model_id,
+        metrics=metrics,
+        evaluated_at=evaluated_at,
+    )
+
+
+@router.get(
+    "/evaluate/{model_id}",
+    summary="List evaluations for a model",
+    description=(
+        "Returns all evaluation records persisted for the given model. "
+        "Raises 404 if the model does not exist."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "model_id": "e5f6g7h8-...",
+                        "evaluations": [
+                            {
+                                "metrics": {"mse": 0.01, "rmse": 0.1, "mae": 0.08, "r2": 0.99},
+                                "evaluated_at": "2024-01-01T00:00:00Z",
+                            }
+                        ],
+                    }
+                }
+            }
+        },
+        404: {
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Model not found.", "code": "model_not_found"}
+                }
+            }
+        },
+    },
+)
+async def get_evaluations(
+    model_id: str,
+    store: ModelStore = Depends(get_store),
+) -> dict:
+    if not store.exists(model_id):
+        raise ModelNotFoundError(f"Model '{model_id}' not found.")
+    return {"model_id": model_id, "evaluations": store.get_evaluations(model_id)}
