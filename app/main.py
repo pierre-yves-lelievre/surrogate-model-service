@@ -13,8 +13,11 @@ from app.logging_setup import configure_logging, get_logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from datetime import UTC, datetime
+
     configure_logging(settings.log_level)
     log = get_logger(__name__)
+    app.state.started_at = datetime.now(UTC)
     log.info("startup", version=settings.app_version, models_dir=str(settings.models_dir))
     settings.models_dir.mkdir(parents=True, exist_ok=True)
     yield

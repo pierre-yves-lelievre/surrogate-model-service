@@ -2,7 +2,8 @@ import uuid
 from datetime import UTC, datetime
 from functools import lru_cache
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.errors import JobNotFoundError, ModelNotFoundError
@@ -13,6 +14,7 @@ from app.logging_setup import get_logger
 from app.schemas import (
     EvaluateRequest,
     EvaluateResponse,
+    HealthResponse,
     JobStatusResponse,
     PredictRequest,
     PredictResponse,
@@ -78,9 +80,40 @@ def _run_training(
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
-@router.get("/health")
-async def health():
-    return {"status": "ok"}
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Service health check",
+    description=(
+        "Returns service status and dependency checks. "
+        "HTTP 200 when healthy, 503 when storage is not writable."
+    ),
+)
+async def health(
+    request: Request,
+    store: ModelStore = Depends(get_store),
+    jobs: JobStore = Depends(get_jobs),
+) -> JSONResponse:
+    from datetime import UTC, datetime
+
+    started_at = getattr(request.app.state, "started_at", datetime.now(UTC))
+    uptime = (datetime.now(UTC) - started_at).total_seconds()
+
+    storage_writable = store.is_writable()
+    checks = {
+        "storage_writable": storage_writable,
+        "models_count": len(store.list_models()),
+        "active_jobs": jobs.count_active(),
+    }
+    status = "healthy" if storage_writable else "degraded"
+    body = HealthResponse(
+        status=status,
+        checks=checks,
+        version=settings.app_version,
+        uptime_seconds=uptime,
+    )
+    status_code = 200 if storage_writable else 503
+    return JSONResponse(status_code=status_code, content=body.model_dump())
 
 
 @router.post(
