@@ -34,10 +34,12 @@ _job_store = JobStore()
 
 @lru_cache(maxsize=1)
 def get_store() -> ModelStore:
+    """Return the singleton ModelStore rooted at settings.models_dir."""
     return ModelStore(settings.models_dir)
 
 
 def get_jobs() -> JobStore:
+    """Return the module-level singleton JobStore."""
     return _job_store
 
 

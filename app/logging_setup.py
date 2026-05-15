@@ -7,6 +7,7 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 
 
 def configure_logging(log_level: str = "INFO") -> None:
+    """Configure structlog for JSON output with stdlib integration."""
     logging.basicConfig(
         format="%(message)s",
         level=getattr(logging, log_level.upper(), logging.INFO),
@@ -29,4 +30,5 @@ def configure_logging(log_level: str = "INFO") -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
+    """Return a structlog logger bound to the given name."""
     return structlog.get_logger(name)

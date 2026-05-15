@@ -7,6 +7,7 @@ log = get_logger(__name__)
 
 
 def train_model(features: list[list[float]], targets: list[float]) -> RandomForestRegressor:
+    """Fit a RandomForestRegressor on the provided dataset and return it."""
     X = np.array(features)
     y = np.array(targets)
 
