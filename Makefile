@@ -1,4 +1,4 @@
-.PHONY: install run test lint format docker-build docker-run
+.PHONY: install run test lint format docker-build docker-run docker-stop
 
 install:
 	uv sync --all-groups
@@ -19,4 +19,7 @@ docker-build:
 	docker build -t surrogate-model-service .
 
 docker-run:
-	docker run --rm -p 8000:8000 surrogate-model-service
+	docker compose up --build -d
+
+docker-stop:
+	docker compose down
