@@ -6,9 +6,16 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.config import settings
 from app.errors import JobNotFoundError
+from app.inference import predict
 from app.jobs import Job, JobStore
 from app.logging_setup import get_logger
-from app.schemas import JobStatusResponse, TrainRequest, TrainResponse
+from app.schemas import (
+    JobStatusResponse,
+    PredictRequest,
+    PredictResponse,
+    TrainRequest,
+    TrainResponse,
+)
 from app.storage import ModelStore, build_manifest
 from app.training import train_model
 
@@ -135,4 +142,66 @@ async def get_job(
         created_at=job.created_at,
         started_at=job.started_at,
         completed_at=job.completed_at,
+    )
+
+
+@router.post(
+    "/predict",
+    response_model=PredictResponse,
+    summary="Run inference on a trained model",
+    description=(
+        "Loads the model identified by `model_id` and returns predictions for the supplied "
+        "feature matrix. Predictions are deterministic: the underlying RandomForestRegressor "
+        "was trained with `random_state=42` and `predict()` is deterministic given the same "
+        "fitted model."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "inference_id": "f1e2d3c4-...",
+                        "model_id": "e5f6g7h8-...",
+                        "predictions": [2.0, 4.0],
+                        "timestamp": "2024-01-01T00:00:00Z",
+                    }
+                }
+            }
+        },
+        404: {
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Model not found.", "code": "model_not_found"}
+                }
+            }
+        },
+    },
+)
+async def run_predict(
+    request: PredictRequest,
+    store: ModelStore = Depends(get_store),
+) -> PredictResponse:
+    # store.load raises ModelNotFoundError automatically if the model is missing
+    model = store.load(request.model_id)
+
+    # Predictions are deterministic: RandomForestRegressor(random_state=42).predict
+    # always returns the same result for the same fitted model and input features.
+    predictions = predict(model, request.features)
+
+    inference_id = str(uuid.uuid4())
+    timestamp = datetime.now(UTC)
+
+    log.info(
+        "inference_completed",
+        inference_id=inference_id,
+        model_id=request.model_id,
+        n_samples=len(request.features),
+        n_features=len(request.features[0]),
+    )
+
+    return PredictResponse(
+        inference_id=inference_id,
+        model_id=request.model_id,
+        predictions=predictions,
+        timestamp=timestamp,
     )
